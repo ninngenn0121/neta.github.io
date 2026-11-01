@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>IPログ保存サイト</title>
+    <style>
+        body { font-family: sans-serif; margin: 40px; background: #f9f9f9; }
+        .box { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 800px; margin: auto; }
+        pre { background: #1e1e1e; color: #dcdcdc; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        input[type="password"] { padding: 8px; font-size: 16px; width: 200px; }
+        button { padding: 8px 16px; font-size: 16px; background: #007bff; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+        .error { color: red; }
+        .admin-section { margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <h1>ようこそ！</h1>
+    <p>当サイトへアクセスありがとうございます。</p>
+
+    <div class="admin-section">
+        <h3>管理者ログイン</h3>
+        <div id="login-area">
+            <p id="error-msg" class="error"></p>
+            <input type="password" id="password-input" placeholder="パスワード">
+            <button onclick="fetchLogs()">ログインしてログを見る</button>
+        </div>
+        
+        <div id="logs-area" style="display:none;">
+            <button onclick="logout()" style="float:right; background:#d9534f; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer;">ログアウト</button>
+            <h3>訪問者IPログ一覧</h3>
+            <pre id="logs-output">読み込み中...</pre>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ページが開かれたらサーバーにIPを保存するよう自動リクエスト
+    window.addEventListener('load', async () => {
+        try {
+            await fetch('/api/save', { method: 'POST' });
+        } catch (e) {
+            console.error("IP記録エラー:", e);
+        }
+    });
+
+    // パスワード認証してログを取得
+    async function fetchLogs() {
+        const password = document.getElementById('password-input').value;
+        const errorMsg = document.getElementById('error-msg');
+        errorMsg.textContent = "認証中...";
+
+        try {
+            const res = await fetch('/api/logs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                document.getElementById('login-area').style.display = 'none';
+                document.getElementById('logs-area').style.display = 'block';
+
+                let output = "";
+                data.logs.forEach(log => {
+                    output += `${log.time} | IP: ${log.ip} | UA: ${log.userAgent}\n`;
+                });
+                document.getElementById('logs-output').textContent = output || "まだログはありません。";
+            } else {
+                errorMsg.textContent = data.message;
+            }
+        } catch (e) {
+            errorMsg.textContent = "通信エラーが発生しました。";
+        }
+    }
+
+    function logout() {
+        document.getElementById('password-input').value = "";
+        document.getElementById('error-msg').textContent = "";
+        document.getElementById('logs-area').style.display = 'none';
+        document.getElementById('login-area').style.display = 'block';
+    }
+</script>
+</body>
+</html>
